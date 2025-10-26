@@ -1,0 +1,70 @@
+после настройки сети
+apt-get install nano nftables frr sudo dhcp-server NetworkManager-tui NetworkManager-ovs -y
+
+ВЛАНЫ:
+systemctl enable --now openvswitch
+ovs-vsctl add-br hq-sw
+ovs-vsctl add-port hq-sw ens20 tag=110
+ovs-vsctl add-port hq-sw ens21 tag=220
+ovs-vsctl add-port hq-sw ens22 tag=990
+ovs-vsctl add-port hq-sw vlan110 tag=110 -- set interface vlan110 type=internal
+ovs-vsctl add-port hq-sw vlan220 tag=220 -- set interface vlan220 type=internal
+ovs-vsctl add-port hq-sw vlan990 tag=990 -- set interface vlan990 type=internal
+systemctl restart openvswitch
+systemctl restart NetworkManager
+rm -f /etc/net/ifaces/ens20/ipv4address 
+rm -f /etc/net/ifaces/ens21/ipv4address 
+rm -f /etc/net/ifaces/ens22/ipv4address 
+ip link set hq-sw up
+systemctl restart network 
+nano /etc/ipvlan.sh
+ip a add 192.168.1.0 dev vlan110
+nano ~/.bashrc
+%bash /etc/ipvlan.sh
+bash /root/.bashrc
+
+DHCP:
+nano /etc/sysconfig/dhcpd
+%DHCPDARGS=vlan220
+cp /etc/dhcp/dhcpd.conf.example /etc/dhcp/dhcpd.conf
+vim /etc/dhcp/dhcpd.conf
+от subnet до max-lease меняем все под нас кроме option broadcast
+
+ТУНЕЛЬ:
+systectl enable --now NetworkManager
+nmtui
+nmcli connection modify tun ip-tunnel.ttl 64 
+
+OSPF:
+systemctl enable --now frr
+nano /etc/frr/daemons
+%ospfd=yes (no поменять на yes)
+systemctl restart frr
+vtysh
+conf t
+route ospf
+passive-interface default 
+network 192.168.1.0/29 area 0
+network 192.168.1.32/27 area 0
+network 192.168.1.64/27 area 0
+network 10.5.5.0/30 area 0
+area 0 authentication 
+ex
+interface tun
+no ospf network broadcast
+no ip ospf passive
+ip ospf authentication 
+ip ospf authentication-key P@ssw0rd
+ex
+ex
+wr
+ex
+
+
+ЮЗЕР:
+adduser net_admin -s /bin/bash
+passwd net_admin
+P@ssw0rd
+usermod -aG wheel net_admin 
+nano /etc/sudoers
+%net_admin ALL=(ALL:ALL) NOPASSWD: ALL
