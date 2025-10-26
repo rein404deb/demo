@@ -1,0 +1,49 @@
+настроить сеть
+apt-get install nano sudo bind -y
+
+ЮЗЕР:
+adduser remote_user -u 2041 -s /bin/bash
+passwd remote_user
+P@ssw0rd
+usermod -aG wheel remote_user
+nano /etc/sudoers
+%remote_user ALL=(ALL:ALL) NOPASSWD: ALL
+
+SSH:
+systemctl enable --now sshd
+nano /etc/openssh/sshd_config
+%Port 2041
+%MaxAuthTries 1
+%AllowUsers remote_user
+%Banner /var/bannerssh
+nano /var/bannerssh 
+%AKS 41 Access Only
+systemctl restart sshd 
+
+DNS:
+nano /etc/bind/options.conf
+%listen-on port 53 { 127.0.0.1; 192.168.1.65; };
+%//listen-on-6 (#его надо закоментить)
+%forwarders {8.8.8.8;};
+%allow-query {any;};
+%dnssec-validation yes;
+nano /etc/bind/local.conf
+%zone "aks41.aks" {
+type master;
+file "aks41.aks";
+};
+%zone "1.168.192.in-addr.ska" {
+type master;
+file "1.168.192.in-addr.ska";
+};
+cp /etc/bind/zone/localdomain /etc/bind/zone/aks41.aks
+cp /etc/bind/zone/127.in-addr.arpa /etc/bind/zone/1.168.192.in-addr.ska
+nano /etc/bind/zone/aks41.aks
+chown named /etc/bind/zone/aks41.aks
+chown named /etc/bind/zone/1.168.192.in-addr.ska
+chmod 600 /etc/bind/zone/aks41.aks
+chmod 600 /etc/bind/zone/1.168.192.in-addr.ska
+systemctl restart network 
+systemctl restart bind.service 
+
+
