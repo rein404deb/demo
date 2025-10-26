@@ -1,0 +1,18 @@
+hostnamectl set-hostname hq-cli.aks41.aks;exec bash 
+timedatectl set-timezone Europe/Moscow 
+nano /etc/resolv.conf 
+%nameserver 8.8.8.8 
+#Клиенту IP адрес дает DHCP, однако при новой сессии интернет пропадает, т.к. на HQ-RTR DHCP автоматом не включается
+#Поэтому, чтобы интернет появился, при каждой новой сесии делаем данные шаги:
+#1) На HQ-RTR прописываем команду: 
+systemctl enable --now dhcpd
+#2) Перезагружаем HQ-CLI
+#3) После перезагрузке на клиенте входим в:
+nano /etc/resolv.conf
+%nameserver 8.8.8.8
+#4)На HQ-CLI прописываем:
+rm -rf /var/lib/apt/lists/lock
+#5) Далее прописываем
+systemctl restart network 
+#После этого интернет должен появиться
+
