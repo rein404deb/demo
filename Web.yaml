@@ -1,0 +1,28 @@
+services: 
+database:
+container _nane: "db' 
+image: nariadb:10.11 
+restart: always 
+environnent:
+MARIADB_DATABASE: 'testdb'
+MARIADB_USER: 'test'
+MARIADB_PASSWORD: "Passuürd'
+MARIADB_ROOT_PASSWORD: "Passuørd' 
+volumes:
+- mariadb:/var/lib/mysql 
+app:
+container_nane: 'testapp' 
+image: site
+restart: always 
+ports:
+"8080:8000"
+environnent :
+DB_TYPE: 'naria'
+DB_HOST: "db"
+DB_MAME: 'testdb"
+DB_PORT:
+"3306"
+DB_ USER:
+'test'
+DB_PASS: 'PasswOrd'
+volumes : mariadb:
