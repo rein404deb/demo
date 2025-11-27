@@ -1,4 +1,5 @@
 mdadm --create --verbose /dev/md0 -l 0 -n 2 /dev/sdb1 /dev/sdc1
+mdadm --detail --scan >> /etc/mdadm.con
 mkfs.ext4 /dev/md0
 mkdir /raid
 chmod 777 /raid
