@@ -1,0 +1,124 @@
+На hq-client 
+# ssh sshuser@hq-srv -p 2026
+# su-
+# apt-get update && apt-get install openssl ca-certificates
+# mkdir -p /etc/pki/CA
+# mkdir -p /etc/pki/CA/private
+# mkdir -p /etc/pki/CA/certs
+# mkdir -p /etc/pki/CA/newcerts
+# mkdir -p /etc/pki/CA/crl
+# touch /etc/pki/CA/index.txt
+# echo 1000 > /etc/pki/CA/serial
+# chmod 700 /etc/pki/CA/private
+# openssl req -x509 -new -nodes \
+> keyout /etc/pki/CA/private/ca.key \
+> -out /etc/pki/CA/certs/ca.crt \
+> -days 3650 \
+> -sha256 \
+> -subj “/CN=AU-TEAM Root CA” 
+# openssl genrsa -out /etc/pki/CA/private/web.au-team.irpo.key 2048
+# openssl genrsa -out /etc/pki/CA/private/docker.au-team.irpo.key 2048
+# openssl req -new \
+> -key /etc/pki/CA/private/web.au-team.irpo.key \
+> -out /etc/pki/CA/newcerts/web.au-team.irpo.crs \
+> -subj “/CN=web.au-team.irpo”
+# openssl req -new \
+> -key /etc/pki/CA/private/docker.au-team.irpo.key \
+> -out /etc/pki/CA/newcerts/docker.au-team.irpo.crs \
+> -subj “/CN=docker-team.irpo”
+# mkdir -p /etc/ssl
+# nano /etc/ssl/web.cnf
+[ca]
+default_ca = CA_default
+
+[CA_default]
+dir 			= /etc/pki/CA 
+certs 			= $dir /certs
+crl_dir 			= $dir /crl
+new_certs_dir 		= $dir /newcerts
+database		 = $dir /index.txt
+serial 			 = $dir /serial
+RANDFILE 		 = $dir /private/ .rand
+certificate 		 = $dir /certs/ca.crt
+private_key 		 = $dir /private/ca.key
+default_days 		 = 30
+default_md 		 = sha256
+preserve 		 = no
+policy 			 = policy_anything
+
+[policy_anything]
+countryName 			 = optional
+stateOrProvinceName 	 = optional
+localityName 			 = optional 
+organizationName 		 = optional
+organizationalUnitName 	 = optional
+commonName 		 = supplied 
+emailAddress 			 = optional
+
+[server_cert]
+basicContraints 	 = CA:FALSE
+subjectKeyIdentifier 	 = hash
+authorityKeyIdentifier 	 = keyid, issuser
+keyUsage 		 = critical, digitalSignature, keyEncipherment
+extendedKeyUsage 	 = serverAuth
+subjectAltName 	 = @alt_names
+
+[alt_names]
+DNS.1 			 = web.au-team.irpo
+DNS.2 			 = docker.au-team.irpo
+
+# openssl ca \
+> -config /etc/ssl/web.cnf \
+> -in /etc/pki/CA/newcerts/web.au-team.irpo.csr \
+> -out /etc/pki/CA/certs/web.au-team.irpo.crt \
+> -extensions server_cert \
+> -batch
+# openssl ca \
+> -config /etc/ssl/web.cnf \
+> -in /etc/pki/CA/newcerts/docker.au-team.irpo.csr \
+> -out /etc/pki/CA/certs/docker.au-team.irpo.crt \
+> -extensions server_cert \
+> -batch 
+// (если забыли написать расширение .crt или .csr то заходите в файл /etc/pki/CA/certs/index.txt и сотрите весь текст)
+
+# cp /etc/pki/CA/certs/ca.crt /raid/nfs
+# cp /etc/pki/CA/certs/web.au-team.irpo.crt /raid/nfs
+# cp /etc/pki/CA/private/web.au-team.irpo.key /raid/nfs
+# cp /etc/pki/CA/certs/docker.au-team.irpo.crt /raid/nfs
+# cp /etc/pki/CA/private/docker.au-team.irpo.key /raid/nfs
+
+Далее Открываем ещё один терминал на hq-cli
+# su-
+# cp /mnt/nfs/ca.crt /etc/pki/ca-trust/source/anchors/
+
+На isp
+# mkdir -p /etc/nginx/ssl
+# scp -P 2026 sshuser@172.16.1.1:/raid/nfs/web.au-team.irpo.crt /etc/nginx/ssl/
+# scp -P 2026 sshuser@172.16.1.1:/raid/nfs/docker.au-team.irpo.crt /etc/nginx/ssl/
+
+На hq-cli подключаемся через ssh к hq-srv
+# chmod 777 /raid/nfs/web.au-team.irpo.key
+# chmod 777 /raid/nfs/docker.au-team.irpo.key
+
+На isp
+# scp -P 2026 sshuser@172.16.1.1:/raid/nfs/web.au-team.irpo.key /etc/nginx/ssl/
+# scp -P 2026 sshuser@172.16.1.1:/raid/nfs/docker.au-team.irpo.key /etc/nginx/ssl/
+# chmod 700 /raid/nfs/web.au-team.irpo.key
+# chmod 700 /raid/nfs/docker.au-team.irpo.key
+# nano /etc/nginx/sites-available.d/reverse.conf
+server {
+listen 443 ssl;
+ssl_certificate /etc/nginx/ssl/web.au-team.irpo.crt;
+ssl_certificate_key /etc/nginx/ssl/web.au-team.irpo.key;
+  	ssl_protocols TLSv1.2 TLSv1.3;
+ssl_ciphers ECDHE+AESGCM:DHE+AESGCM;
+ssl_prefer_server_ciphers off;
+Далее В этом же файле ищем ещё один server {, туда Копируем то что мы и писали сверху
+
+Далее для проверки заходим в яндекс браузер На hq-cli и пишем url:
+https://web.au-team.irpo
+Имя пользователя: WEB
+Пароль: P@ssw0rd 
+И
+https://docker.au-team.irpo
+Если в левом верхнем углу нету красного значка перечеркнутого замка (соединение не защищено), то все правильно 
